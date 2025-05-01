@@ -13,7 +13,7 @@ from spikingjelly.datasets import dvs128_gesture
 
 _seed_ = 2020
 import random
-random.seed(2020)
+#random.seed(2020)
 
 torch.manual_seed(_seed_)  # use torch.manual_seed() to seed the RNG for all devices (both CPU and CUDA)
 torch.cuda.manual_seed_all(_seed_)
@@ -21,7 +21,7 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
 import numpy as np
-np.random.seed(_seed_)
+#np.random.seed(_seed_)
 
 def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, print_freq, scaler=None, T_train=None):
     model.train()
@@ -34,7 +34,6 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
     for image, target in metric_logger.log_every(data_loader, print_freq, header):
         start_time = time.time()
         image, target = image.to(device), target.to(device)
-        image = image.float()  # [N, T, C, H, W]
 
         if T_train:
             sec_list = np.random.choice(image.shape[1], T_train, replace=False)
@@ -94,7 +93,7 @@ def evaluate(model, criterion, data_loader, device, print_freq=100, header='Test
             loss = criterion(output, target)
             functional.reset_net(model)
 
-            acc1, acc5 = utils.accuracy(output, target, topk=(1, 5))
+            acc1, acc5 = utils.accuracy(output, target, topk=(1, 3))
             batch_size = image.shape[0]
             metric_logger.update(loss=loss.item())
             metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
@@ -103,7 +102,7 @@ def evaluate(model, criterion, data_loader, device, print_freq=100, header='Test
     metric_logger.synchronize_between_processes()
 
     loss, acc1, acc5 = metric_logger.loss.global_avg, metric_logger.acc1.global_avg, metric_logger.acc5.global_avg
-    print(f' * Acc@1 = {acc1}, Acc@5 = {acc5}, loss = {loss}')
+    print(f' * Acc@1 = {acc1}, Acc@3 = {acc5}, loss = {loss}')
     return loss, acc1, acc5
 
 def load_data(dataset_dir, distributed, T):
@@ -286,10 +285,13 @@ def main(args):
 
         print('Training time {}'.format(total_time_str), 'max_test_acc1', max_test_acc1, 'test_acc5_at_max_test_acc1', test_acc5_at_max_test_acc1)
         print(output_dir)
-    if output_dir:
-        utils.save_on_master(
-            checkpoint,
-            os.path.join(output_dir, f'checkpoint_{epoch}.pth'))
+        if output_dir:
+            utils.save_on_master(
+                checkpoint,
+                os.path.join(output_dir, f'checkpoint_{epoch}.pth'))
+
+            if os.path.exists(os.path.join(output_dir, f'checkpoint_{epoch-1}.pth')):
+                os.remove(os.path.join(output_dir, f'checkpoint_{epoch-1}.pth'))
 
     return max_test_acc1
 
@@ -362,10 +364,7 @@ if __name__ == "__main__":
     main(args)
 
 '''
-/raid/wfang/datasets/DVS128Gesture
 
-python train.py --tb --amp --output-dir ./logs --model PlainNet --device cuda:0 --lr-step-size 64 --epoch 192 --T_train 12 --T 16 --data-path /raid/wfang/datasets/DVS128Gesture
-
-python train.py --tb --amp --output-dir ./logs --model SEWResNet --connect_f ADD --device cuda:0 --lr-step-size 64 --epoch 192 --T_train 12 --T 16 --data-path /raid/wfang/datasets/DVS128Gesture
+python train.py --tb --amp --output-dir ./logs --model SEWResNet --connect_f AND --lr 0.001 --device cuda:0 --lr-step-size 64 --epoch 20 --T_train 12 --T 16 --data-path /root/DvsGesture
 
 '''
