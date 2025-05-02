@@ -5,7 +5,7 @@ from utilities import Q3_5QuantizedTensor
 """
 HW_output_test.py
 
-This script only changes line 101 so self.w is used instead of self.w.sigmoid().
+This script changes line 110-111 so self.w is used instead of self.w.sigmoid(), and the membrane potential is quantized.
 
 """
 class custom_ParametricLIFNode(BaseNode):

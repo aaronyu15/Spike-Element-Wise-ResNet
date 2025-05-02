@@ -4,9 +4,10 @@ import torch
 import os
 from spikingjelly.datasets import dvs128_gesture
 from fxpmath import Fxp
+from torchvision import transforms
 
 
-def tensor_is_raw(tensor, bin_rep=False):
+def data_preprocess(tensor, bin_rep=False, args=None):
     """
     Used when the tensor is the raw data from the dataloader. 
     Expects a shape of (16,2,128,128), AKA one tensor from the batch, not scaled by 3/max(x) yet. 
@@ -14,14 +15,17 @@ def tensor_is_raw(tensor, bin_rep=False):
     """
     x = Q3_5QuantizedTensor()
 
+    N, B, C, H, W = tensor.shape
+
     if tensor.ndimension() == 5:
         tensor = tensor.view(-1, *tensor.shape[2:])
 
+    # Scale tensor values to be between 0 and 3, and then apply max pooling
     tensor = 3*tensor/(torch.max(tensor))
     tensor = torch.nn.functional.max_pool2d(tensor, kernel_size=2, stride=2)
-    #tensor = quantize_tensor(tensor, bin_rep=bin_rep)
-    tensor = x.quantize(tensor)
-    tensor = tensor.view(-1, 16, 2, 64, 64)
+    if(args.use_coe):
+        tensor = x.quantize(tensor)
+    tensor = tensor.view(N, B, C, H//2, W//2)
 
     return tensor
 
@@ -136,8 +140,8 @@ def plot_tensor_distribution(x):
     # Define bins
     # Create logarithmically spaced bins from 0.01 to 100
     # define bins with linear spacing
-    start = 1e-5
-    stop = 1e-1
+    start = 1e-2
+    stop = 1e2
     num_bins = 10
     step = (stop - start) / num_bins
     edges = np.arange(start, stop + step, step)
@@ -162,43 +166,48 @@ def plot_tensor_distribution(x):
     plt.title('Distribution of Tensor Values')
     plt.show()
 
-"""
-Common statements
-"""
+def play(tensor, save_gif=False, file_name="wave.gif"):
+    to_img = transforms.ToPILImage()
+    img_tensor = torch.zeros([tensor.shape[0], 3, tensor.shape[2], tensor.shape[3]])
+    img_tensor[:, 1] = tensor[:, 0]
+    img_tensor[:, 2] = tensor[:, 1]
+    for t in range(img_tensor.shape[0]):
+            plt.imshow(to_img(img_tensor[t]))
+            plt.pause(0.2)
 
-device = torch.device("cuda")
-seed = 19
-generator = torch.Generator().manual_seed(seed)
-torch.set_printoptions(threshold=float("inf"), precision=10)
-torch.set_grad_enabled(False)
+    if save_gif:
+        frames = []
+        for t in range(img_tensor.shape[0]):
+            img = to_img(img_tensor[t])  # Convert tensor to PIL image
+            frames.append(img.copy())  # Make a copy so we don’t overwrite
 
-# Dataset Directory
-DVSGesture_dir = "/home/aaron/Research_Projs/DvsGesture/"
-root_dir  = os.path.join(DVSGesture_dir, "events_np/train/0")
-frame_dir = os.path.join(DVSGesture_dir, "frames_number_16_split_by_number/train/0")
-
-# Working Directory
-working_dir = "/home/aaron/Research_Projs/Spike-Element-Wise-ResNet/"
-checkpoint_path = os.path.join(working_dir, "dvsgesture/logs/26_no_bias/lr0.001")
-checkpoint_file = "checkpoint_299.pth"
-
-model_params = os.path.join(checkpoint_path, checkpoint_file)
+        # Save the frames as an animated GIF
+        frames[0].save(
+            file_name,
+            save_all=True,
+            append_images=frames[1:],
+            duration=int(0.2 * 1000),  # duration in milliseconds
+            loop=0
+        )
+    print(f"Saved animation to {file_name}")
 
 # Dataset
-dataset_train = dvs128_gesture.DVS128Gesture(root=DVSGesture_dir, train=True, data_type='frame', frames_number=16, split_by='number')
-sampler_train = torch.utils.data.RandomSampler(dataset_train, generator=generator)
+# Define custom transform for salt and pepper noise
+class SaltPepperNoise:
+    def __init__(self, prob=0.05):
+        self.prob = prob
 
-dataset_test  = dvs128_gesture.DVS128Gesture(root=DVSGesture_dir, train=False, data_type='frame', frames_number=16, split_by='number')
-sampler_test = torch.utils.data.RandomSampler(dataset_test, generator=generator)
+    def __call__(self, img):
+        if not isinstance(img, torch.Tensor):
+            img = transforms.ToTensor()(img)
 
-data_loader = torch.utils.data.DataLoader(
-    dataset_train, batch_size=49,
-    sampler=sampler_train, num_workers=0, pin_memory=True)
-test_loader = torch.utils.data.DataLoader(
-    dataset_test, batch_size=32,
-    sampler=sampler_test, num_workers=0, pin_memory=True)
+        min_val = torch.amin(img, dim=(0, 2, 3), keepdim=True)  # Shape: (1, 1, C, 1, 1)
+        max_val = torch.amax(img, dim=(0, 2, 3), keepdim=True)  # Shape: (1, 1, C, 1, 1)
 
-# coe file related
-test_data_coe = "./coe_files/test_data.coe"
-conv_coe = "./coe_files/conv3x3.coe"
-fc_data_coe = [f"./coe_files/fc{i}.coe" for i in range(11)]
+        # Most entries in the tensor are less than 10. The maximum is typically near or over 100. 
+        # Using max_val/10 is suitable to represent a possible noise value.
+        # min_val is always 0 but included for completeness.
+        noise = torch.rand_like(img)
+        img = torch.where(noise < self.prob / 2, min_val/10, img)
+        img = torch.where(noise > 1 - self.prob / 2, max_val/10, img)
+        return img

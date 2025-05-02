@@ -8,7 +8,6 @@ import numpy as np
 import os
 import torch
 from torch import nn
-from torchvision import transforms
 from matplotlib import pyplot as plt
 import dvsgesture.smodels as smodels
 from fxpmath import Fxp
@@ -31,8 +30,6 @@ Key functionalities:
 - Visualizes tensor distributions and plays input data as animations.
 - Provides utilities for inspecting and debugging model layers.
 """
-
-
 
 def flatten_sequential(sequential):
     """
@@ -80,41 +77,6 @@ def fold_batchnorm_no_bias(conv_weight, bn_weight, bn_bias, bn_running_mean, bn_
     return new_weight, new_bias
 
 
-
-
-
-def play(x):
-    #to_img = transforms.ToPILImage()
-    #img_tensor = torch.zeros([x.shape[0], 3, x.shape[2], x.shape[3]])
-    #img_tensor[:, 1] = x[:, 0]
-    #img_tensor[:, 2] = x[:, 1]
-    #for i in range(2):
-    #    for t in range(img_tensor.shape[0]):
-    #            plt.imshow(to_img(img_tensor[t]))
-    #            plt.pause(0.2)
-    to_img = transforms.ToPILImage()
-    img_tensor = torch.zeros([x.shape[0], 3, x.shape[2], x.shape[3]])
-    img_tensor[:, 1] = x[:, 0]  # Green channel
-    img_tensor[:, 2] = x[:, 1]  # Blue channel
-
-    frames = []
-
-    for t in range(img_tensor.shape[0]):
-        img = to_img(img_tensor[t])  # Convert tensor to PIL image
-        frames.append(img.copy())  # Make a copy so we don’t overwrite
-
-    # Save the frames as an animated GIF
-    frames[0].save(
-        "wave.gif",
-        save_all=True,
-        append_images=frames[1:],
-        duration=int(0.2 * 1000),  # duration in milliseconds
-        loop=0
-    )
-
-    print(f"Saved animation to {'wave.gif'}")
-
-
 def evaluate_model(model, test_loader, device):
     """
     Evaluate the model on the test dataset.
@@ -157,32 +119,19 @@ evaluate_model(model, test_loader, device)
 
 # Data classes are 0 - 10, not 1 - 11
 
-exit()
-
-# Flatten the model for printing
-flat_model = flatten_sequential(model.children())
-
-
-# First data of size (16, 2, 128, 128) for testing
-data_iter = iter(data_loader)
-test_iter = iter(test_loader)
-first_data = next(test_iter)
-input_data, label = first_data
-
-
-input_data = input_data.squeeze()
-play(input_data)
-
-exit()
-
-#generate_dummy_coe(input_data)
-
 
 
 
 def create_model_coe_files():
     bin_rep = False
-    tw1, tb1 = fold_batchnorm_no_bias(flat_model[1][0].weight,  flat_model[2][0].weight, flat_model[2][0].bias, flat_model[2][0].running_mean, flat_model[2][0].running_var, flat_model[2][0].eps)
+
+    tw1, tb1 = fold_batchnorm_no_bias(flat_model[1][0].weight,
+                                      flat_model[2][0].weight,
+                                      flat_model[2][0].bias,
+                                      flat_model[2][0].running_mean,
+                                      flat_model[2][0].running_var,
+                                      flat_model[2][0].eps)
+
     tw1 = tw1.flatten()
     tb1 = tb1.flatten()
     conv3x3coe = torch.cat((tw1, tb1), dim=0)
@@ -250,37 +199,6 @@ def create_model_coe_files():
 create_model_coe_files()
 
 
-
-
-def inspect_model_layers(x, data):
-    # Input stage / layers
-    data = data.permute(1, 0, 2, 3, 4)
-
-    x = flat_model[0](data)
-    x = flat_model[1](x)
-    print(f"Conv2d: {x[0,0,0,0]}")
-
-    print(x.shape)
-    x = flat_model[2](x)
-    print(f"batchnorm: {x[0,0,0,0]}")
-
-    x = flat_model[3](x)
-    print(f"LIF: {x[0,0,0,0]}")
-
-    x = flat_model[4](x)
-    print(f"pool: {x[0,0,0,0]}")
-
-    x = flat_model[5](x)
-    print(f"flatten: {x.shape}")
-    for i in range(16):
-        print(f"{i} : {x[i,0,0]}")
-
-
-    x = x.mean(0)
-    print(f"mean 0: {x.shape}")
-    print(f"0: {x[0,0]}")
-
-#inspect_model_layers(x, input_data)
 
 
 
