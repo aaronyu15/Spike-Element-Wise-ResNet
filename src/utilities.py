@@ -5,6 +5,9 @@ import os
 from spikingjelly.datasets import dvs128_gesture
 from fxpmath import Fxp
 from torchvision import transforms
+import re
+from collections import defaultdict
+import pandas as pd
 
 
 def data_preprocess(tensor, bin_rep=False, args=None):
@@ -30,7 +33,8 @@ def data_preprocess(tensor, bin_rep=False, args=None):
     return tensor
 
 def quantize_tensor_for_coe(x, return_fxp=False, bin_rep=False, n_word=8, n_frac=5):
-    base = Fxp(None, signed=True, n_word=n_word, n_frac=n_frac, rounding="floor")
+    #base = Fxp(None, signed=True, n_word=n_word, n_frac=n_frac, rounding='floor') Remove round to match coe files
+    base = Fxp(None, signed=True, n_word=n_word, n_frac=n_frac )
     if isinstance(x, int) or isinstance(x, float):
         if(return_fxp):
             q = base(x)
@@ -135,13 +139,13 @@ def read_coe(file, in_bin=False):
 
 def plot_tensor_distribution(x):
     # Convert tensor to numpy
-    x = x.numpy()
+    x = x.detach().numpy()
 
     # Define bins
     # Create logarithmically spaced bins from 0.01 to 100
     # define bins with linear spacing
-    start = 1e-2
-    stop = 1e2
+    start = 1e-4
+    stop = 1e1
     num_bins = 10
     step = (stop - start) / num_bins
     edges = np.arange(start, stop + step, step)
@@ -211,3 +215,76 @@ class SaltPepperNoise:
         img = torch.where(noise < self.prob / 2, min_val/10, img)
         img = torch.where(noise > 1 - self.prob / 2, max_val/10, img)
         return img
+
+
+"""
+
+    Parse batch_output.log to extract Top-1 and Top-3 accuracies for each parameter set.
+    
+"""
+def parse_batch_log(file_path):
+    # Dictionary to store accuracies for each parameter set
+    accuracies = defaultdict(lambda: {'top1': [], 'top3': []})
+    current_param = None
+    
+    # Regular expressions to match accuracy lines
+    top1_pattern = re.compile(r'Top-1 Accuracy on the test dataset: (\d+\.\d+)%')
+    top3_pattern = re.compile(r'Top-3 Accuracy on the test dataset: (\d+\.\d+)%')
+    
+    with open(file_path, 'r') as f:
+        lines = f.readlines()
+    
+    for line in lines:
+        # Identify parameter set
+        if line.startswith('Processing parameter:'):
+            current_param = line.split('Processing parameter: ')[1].strip()
+        
+        # Extract Top-1 Accuracy
+        top1_match = top1_pattern.search(line)
+        if top1_match and current_param:
+            accuracies[current_param]['top1'].append(float(top1_match.group(1)))
+        
+        # Extract Top-3 Accuracy
+        top3_match = top3_pattern.search(line)
+        if top3_match and current_param:
+            accuracies[current_param]['top3'].append(float(top3_match.group(1)))
+    
+    return accuracies
+
+def calculate_averages(accuracies):
+    # Calculate average Top-1 and Top-3 accuracies for each parameter set
+    results = []
+    for param, acc in accuracies.items():
+        avg_top1 = sum(acc['top1']) / len(acc['top1']) if acc['top1'] else 0
+        avg_top3 = sum(acc['top3']) / len(acc['top3']) if acc['top3'] else 0
+        results.append({
+            'Parameter': param,
+            'Avg Top-1 Accuracy (%)': round(avg_top1, 2),
+            'Avg Top-3 Accuracy (%)': round(avg_top3, 2)
+        })
+    return results
+
+def main():
+    log_file = 'batch_output.log'
+    csv_file =  log_file.replace('.log', '.csv')
+
+    # Parse the log file
+    accuracies = parse_batch_log(log_file)
+    
+    # Calculate averages
+    results = calculate_averages(accuracies)
+    
+    # Convert to DataFrame for nice formatting
+    df = pd.DataFrame(results)
+    
+    # Print results
+    print("\nAverage Top-1 and Top-3 Accuracies per Parameter Set:")
+    print(df.to_string(index=False))
+    
+    # Optionally save to CSV
+    df.to_csv(csv_file, index=False)
+    print(f"\nResults saved to {csv_file}")
+
+if __name__ == "__main__":
+    main()
+    print("Batch processing completed.")

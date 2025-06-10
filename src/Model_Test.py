@@ -4,14 +4,13 @@ import torch.nn.functional as F
 from spikingjelly.clock_driven.neuron import MultiStepParametricLIFNode
 from spikingjelly.clock_driven import layer
 from spikingjelly.datasets import dvs128_gesture
-import custom_spikingjelly_class
 import os
 import utilities
 from utilities import Q3_5QuantizedTensor, Q3_5Hook
-import dvsgesture.smodels as smodels
 import argparse
 from Model import ResNetN
 from torchvision import transforms
+import sys
 
 def load_and_quantize_weights(model, weights_path=None, use_coe=False):
     """
@@ -38,15 +37,14 @@ def load_and_quantize_weights(model, weights_path=None, use_coe=False):
 
         model.out.weight.data = fc_weight
 
+        # Quantize all parameters to Q3.5
+        #model.quantize_parameters()
+
     elif weights_path is not None:
         # Load pre-trained weights
         checkpoint = torch.load(weights_path, weights_only=False)
         model.load_state_dict(checkpoint['model'])
 
-    
-    # Quantize all parameters to Q3.5
-    model.quantize_parameters()
-    
     return model
 
 def transform_data(data, args=None):
@@ -91,7 +89,8 @@ def test_quantized_network(args):
     model = model.to(device)
 
     # Make sure hooks are applied
-    model.apply_quantization_hooks()
+    if args.use_coe:
+        model.apply_quantization_hooks()
 
 
     # Initialize variables to track accuracy
@@ -168,13 +167,13 @@ if __name__ == "__main__":
     torch.set_printoptions(threshold=float("inf"), precision=10)
 
     # Dataset Directory
-    DVSGesture_dir = "../DvsGesture/"
+    DVSGesture_dir = "../../DvsGesture/"
     root_dir  = os.path.join(DVSGesture_dir, "events_np/train/0")
     frame_dir = os.path.join(DVSGesture_dir, "frames_number_16_split_by_number/train/0")
 
     # Working Directory
     working_dir = "."
-    checkpoint_path = os.path.join(working_dir, "dvsgesture/logs/26_no_bias/lr0.001")
+    checkpoint_path = os.path.join(working_dir, "../dvsgesture/logs/26_no_bias/lr0.001")
     checkpoint_file = "checkpoint_299.pth"
 
     model_params = os.path.join(checkpoint_path, checkpoint_file)
@@ -199,8 +198,8 @@ if __name__ == "__main__":
         sampler=sampler_test, num_workers=0, pin_memory=True)
 
     # coe file related
-    test_data_coe = "./coe_files/test_data.coe"
-    conv_coe = "./coe_files/conv3x3.coe"
-    fc_data_coe = [f"./coe_files/fc{i}.coe" for i in range(11)]
+    test_data_coe = "../coe_files/test_data.coe"
+    conv_coe = "../coe_files/conv3x3.coe"
+    fc_data_coe = [f"../coe_files/fc{i}.coe" for i in range(11)]
 
     output = test_quantized_network(args)

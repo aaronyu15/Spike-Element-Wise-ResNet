@@ -4,6 +4,9 @@ from spikingjelly.clock_driven import layer
 import custom_spikingjelly_class
 from utilities import Q3_5QuantizedTensor, Q3_5Hook
 
+"""
+    Define a ResNet-like model for spiking neural networks with Q3.5 quantization.
+"""
 class ResNetN(nn.Module):
     def __init__(self, num_classes=11, args=None):
         super().__init__()
@@ -11,7 +14,7 @@ class ResNetN(nn.Module):
 
         self.maxpool0 = layer.SeqToANNContainer(nn.MaxPool2d(kernel_size=2, stride=2))
 
-        if(args.use_coe):
+        if( args != None and args.use_coe):
             self.conv2d_1 = layer.SeqToANNContainer(nn.Conv2d(2, 6, kernel_size=3, padding=0, stride=1, bias=True))
         else:
             self.conv2d_1 = layer.SeqToANNContainer(nn.Conv2d(2, 6, kernel_size=3, padding=0, stride=1, bias=False))

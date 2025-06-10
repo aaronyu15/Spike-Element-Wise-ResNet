@@ -1,4 +1,5 @@
 Parameter,Avg Top-1 Accuracy (%),Avg Top-3 Accuracy (%)
+python Model_Test.py --eval_data test --use_coe,62.85,91.67
 python Model_Test.py --eval_data test --use_coe --sp_noise --sp_noise_prob 0.05,63.89,91.67
 python Model_Test.py --eval_data test --use_coe --sp_noise --sp_noise_prob 0.10,54.79,87.01
 python Model_Test.py --eval_data test --use_coe --sp_noise --sp_noise_prob 0.20,28.72,58.65

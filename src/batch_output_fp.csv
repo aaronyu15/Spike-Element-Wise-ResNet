@@ -1,0 +1,9 @@
+Parameter,Avg Top-1 Accuracy (%),Avg Top-3 Accuracy (%)
+python Model_Test.py --eval_data test,72.92,93.75
+python Model_Test.py --eval_data test --sp_noise --sp_noise_prob 0.05,64.2,91.25
+python Model_Test.py --eval_data test --sp_noise --sp_noise_prob 0.10,55.03,86.49
+python Model_Test.py --eval_data test --sp_noise --sp_noise_prob 0.20,37.81,71.42
+python Model_Test.py --eval_data test --camera_movement,64.27,91.21
+python Model_Test.py --eval_data test --camera_movement --sp_noise --sp_noise_prob 0.05,51.95,85.49
+python Model_Test.py --eval_data test --camera_movement --sp_noise --sp_noise_prob 0.10,43.75,74.48
+python Model_Test.py --eval_data test --camera_movement --sp_noise --sp_noise_prob 0.20,30.45,64.55

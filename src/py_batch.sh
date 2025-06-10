@@ -16,15 +16,16 @@ echo "Logging outputs to $LOG_FILE"
 echo ""
 
 # List of parameters to pass to main.py
+# Add --use_coe to use quantized coefficients
 PARAMS=(
-    "python Model_Test.py --eval_data test --use_coe" 
-    "python Model_Test.py --eval_data test --use_coe --sp_noise --sp_noise_prob 0.05" 
-    "python Model_Test.py --eval_data test --use_coe --sp_noise --sp_noise_prob 0.10" 
-    "python Model_Test.py --eval_data test --use_coe --sp_noise --sp_noise_prob 0.20" 
-    "python Model_Test.py --eval_data test --use_coe --camera_movement" 
-    "python Model_Test.py --eval_data test --use_coe --camera_movement --sp_noise --sp_noise_prob 0.05" 
-    "python Model_Test.py --eval_data test --use_coe --camera_movement --sp_noise --sp_noise_prob 0.10" 
-    "python Model_Test.py --eval_data test --use_coe --camera_movement --sp_noise --sp_noise_prob 0.20" 
+    "python Model_Test.py --eval_data test" 
+    "python Model_Test.py --eval_data test --sp_noise --sp_noise_prob 0.05" 
+    "python Model_Test.py --eval_data test --sp_noise --sp_noise_prob 0.10" 
+    "python Model_Test.py --eval_data test --sp_noise --sp_noise_prob 0.20" 
+    "python Model_Test.py --eval_data test --camera_movement" 
+    "python Model_Test.py --eval_data test --camera_movement --sp_noise --sp_noise_prob 0.05" 
+    "python Model_Test.py --eval_data test --camera_movement --sp_noise --sp_noise_prob 0.10" 
+    "python Model_Test.py --eval_data test --camera_movement --sp_noise --sp_noise_prob 0.20" 
 )
 
 for PARAM in "${PARAMS[@]}"; do
